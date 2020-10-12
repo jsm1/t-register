@@ -90,23 +90,58 @@ function removeElement(selector) {
     }
 }
 
+function isMainFormValid() {
+    const mainForm = document.querySelector(formSelector);
+    return mainForm.reportValidity();
+}
+
+
+function getManagerDetails() {
+    const form = document.querySelector(formSelector);
+    const elements = form.elements;
+    const [ managerFirstName, managerLastName ] = [
+        elements.namedItem('First-Name').value,
+        elements.namedItem('Surname').value,
+    ];
+    const details = {
+        MANAGERN1: managerFirstName + ' ' + managerLastName,
+        MANAGERE1: elements.namedItem('Email').value,
+        PHONE: elements.namedItem('Mobile').value,
+        REGION: elements.namedItem('Region').value,
+        ROLE: 'Executive Assistant',
+        // tags: [{ name: 'Toyota NDC 2020', status: 'Active' }],
+    };
+    return details;
+}
+
 function onEAFormSubmit(event) {
     event.preventDefault();
+    event.stopPropagation();
+    
+    if (!isMainFormValid()) {
+        return;
+    }
 
     // Submit form to mailchimp
-    const url = event.target.action;
+    const url = 'https://toyotachooseyourroad.us2.list-manage.com/subscribe/post-json?u=87fa237eb7daba1ba09d9584e&id=3f7e2117ba&c=?';
     const form = event.target;
-    const formElements = [...form.elements].filter(el => el.offsetParent && el.type !== 'submit');
-    const formData = new FormData();
-    formElements.forEach(el => {
-        formData.append(el.name, el.value);
-    })
+    const formElements = form.elements;
+    const formData = {
+        FNAME: formElements.namedItem('EA-First-Name').value,
+        EMAIL: formElements.namedItem('EA-Email').value,
+    };
 
+    const managerDetails = getManagerDetails();
+    for (const [key, value] of Object.entries(managerDetails)) {
+        formData[key] = value;       
+    }
+
+
+    console.log(formData);
     $.ajax({
         url,
         data: formData,
-        contentType: false,
-        processData: false,
+        dataType: 'jsonp',
         method: 'POST',
         success: (data) => {
             console.log(data);
