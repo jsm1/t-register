@@ -5,6 +5,7 @@ module.exports = function initTimestamps() {
     const timeDelayElements = [...document.querySelectorAll('[data-show-from]')].map(el => {
         const date = new Date(el.getAttribute('data-show-from'));
         if (Number.isNaN(date.getTime())) {
+            console.log('Invalid date', el.getAttribute('data-show-from'));
             return;
         }
         
@@ -35,11 +36,14 @@ module.exports = function initTimestamps() {
     const showUntilElements = [...document.querySelectorAll('[data-show-until]')].map(el => {
         const date = new Date(el.getAttribute('data-show-until'));
         if (Number.isNaN(date.getTime())) {
+            console.log('Invalid date', el.getAttribute('data-show-until'));
             return;
         }
         
         if (now > date) {
             el.parentNode.removeChild(el)
+        } else {
+            milestones.push(date)
         }
     })
     window.milestones = milestones;
