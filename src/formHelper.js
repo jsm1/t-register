@@ -98,7 +98,7 @@ function hideElementsForSecondStage() {
     }
 
     // Question option
-    if (category !== 'Dealer Principal' && category !== 'Dealer GM' && category !== 'Dealer Other') {
+    if (category !== 'Dealer Principal' && category !== 'General Manager of Record' && category !== 'Dealership GM') {
         removeElement(managementQuestionSelector);
     }
 
