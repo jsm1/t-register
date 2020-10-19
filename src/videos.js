@@ -12,50 +12,73 @@ const videoUtils = {
             player: null,
             watchedVideos: null,
             currentVideo: null,
+            state: {
+                watchedVideos: [],
+                videos: [],
+                completed: false,
+                timeUpdatePromise: null,
+                nextUnwatchedVideo: null,
+            },
         })
-        this.getAndApplyState()
+        this.getInitialState().then(() => {
+            this.applyState()
+        })
+        document.querySelectorAll('[data-show-videos]').forEach(el => {
+            el.addEventListener('click', this.setVideosStared.bind(this))
+        })
+        document.querySelectorAll('[data-show-videos-again]').forEach(el => {
+            el.addEventListener('click', this.showVideosPaneAfterCompletion.bind(this))
+        })
+        this.setBars()
     },
-    getAndApplyState() {
-        this.getVideoWatchState().then((state) => this.applyState(state))
-    },
-    async getVideoWatchState() {
+    async getInitialState() {
         await MemberStack.reload()
         const member = await MemberStack.onReady
-        if (!this.watchedVideos) {
-            this.watchedVideos = this.getWatchedVideos(member)
+        const watchedVideos = this.getWatchedVideos(member)
+        const currentVideo = this.getCurrentVideo(member) || {}
+        let currentVideoIsFirst = false
+        if (!Object.keys(currentVideo).length) {
+            currentVideoIsFirst = true
         }
-        if (!this.currentVideo) {
-            this.currentVideo = this.getCurrentVideo(member)
-        }
-        const watchedVideos = this.watchedVideos
-        const currentVideo = this.currentVideo;
-        return { watchedVideos, currentVideo }
-    },
-    applyState({ watchedVideos, currentVideo }) {
         const videos = [...document.querySelectorAll(this.videoListItemSelector)]
-        videos.forEach((video, index) => {
-            const videoData = this.getVideoData(video)
-            const isVideoWatched = watchedVideos.includes(videoData.name)
-            video.classList.remove(this.activeClass)
-            if (!isVideoWatched) {
-                video.classList.remove(this.watchedClass)
-                video.classList.add(this.disabledClass)
-            } else {
-                video.classList.add(this.watchedClass)
-            }
-            let videoToPlay = currentVideo
-            if (index === 0 && !watchedVideos.length) {
-                videoToPlay = { name: videoData.name, time: 0 }
-            }
-
-            if (videoToPlay && videoToPlay.name === videoData.name) {
-                video.classList.add(this.activeClass)
-                video.classList.remove(this.disabledClass)
-                this.loadVideo(videoData.link)
-                this.setVideoData(videoData)
-                this.setPlaybackPosition(videoToPlay.time)
+        this.state.watchedVideos = watchedVideos
+        this.state.completed = member.completed === true || member.completed === 'true'
+        this.state.videosStarted = member['videos-started'] === true || member['videos-started'] === 'true'
+        console.log('Completed', this.state.completed)
+        this.state.videos = videos.map((video, index) => {
+            const data = this.getVideoData(video)
+            const isCurrent = currentVideo.name === data.name || (index === 0 && currentVideoIsFirst)
+            video.addEventListener('click', videoUtils.onVideoItemClick)
+            return {
+                el: video,
+                data,
+                watched: watchedVideos.includes(data.name),
+                current: isCurrent,
+                playbackPosition: isCurrent ? (currentVideo.time || 0) : undefined,
             }
         })
+    },
+    applyState() {
+        console.log('Videos', this.state.videos)
+        this.state.videos.forEach((video, index) => {
+            const videoEl = video.el
+            videoEl.classList.remove(this.activeClass)
+            if (!video.watched) {
+                videoEl.classList.remove(this.watchedClass)
+                videoEl.classList.add(this.disabledClass)
+            } else {
+                videoEl.classList.add(this.watchedClass)
+            }
+            if (video.current) {
+                videoEl.classList.add(this.activeClass)
+                videoEl.classList.remove(this.disabledClass)
+                this.loadVideo(video.data.link)
+                this.setVideoData(video.data, video.playbackPosition)
+                this.setPlaybackPosition(video.playbackPosition)
+            }
+        })
+        this.toggleCompletedConditionals()
+        this.toggleVideosStartedConditionals()
     },
     getWatchedVideos(member) {
         const list = member['videos-watched'] || ''
@@ -91,17 +114,24 @@ const videoUtils = {
         })
         return data
     },
-    loadVideo(videoUrl) {
+    loadVideo(videoUrl, seconds) {
         if (!this.player) {
             this.removeChildElements('#' + this.videoWrapperId)
             this.player = new Vimeo.Player(this.videoWrapperId, {
                 url: videoUrl,
+
             });
             this.player.on('ended', this.onVideoEnd.bind(this))
             this.player.on('timeupdate', this.onVideoTimeUpdate.bind(this))
+            if (seconds) {
+                this.player.setCurrentTime(seconds)
+            }
+        } else {
+            const extractedId = videoUrl.replace(/^.+\.com\/(.+)/, '$1')
+            this.player.loadVideo(extractedId)
+                .then(() => this.player.setCurrentTime(seconds || 0)) 
         }
-        const extractedId = videoUrl.replace(/^.+\.com\/(.+)/, '$1')
-        this.player.loadVideo(extractedId)       
+             
     },
     setPlaybackPosition(seconds) {
         this.player.setCurrentTime(seconds || 0)
@@ -131,33 +161,41 @@ const videoUtils = {
         ampersand.hidden = !isPresenter2
     },
     async onVideoEnd(event) {
-        const currentVideo = document.querySelector(this.videoListItemSelector + '.' + this.activeClass)
+        const currentVideo = this.findCurrentVideo()
         if (!currentVideo) {
             return
         }
-        const data = this.getVideoData(currentVideo)
+        const data = currentVideo.data
         const videoName = data.name
-        const { watchedVideos } = await this.getVideoWatchState()
-        watchedVideos.push(videoName)
-        const nextVideoEl = this.getNextVideo(videoName)
-        let complete = false
-        if (!nextVideoEl) {
-            complete = true
-        }
-        const nextVideoData = nextVideoEl ? this.getVideoData(nextVideoEl) : null
-        await this.updateState(watchedVideos, nextVideoData ? nextVideoData.name : null, 0, complete)
+        this.state.watchedVideos.push(videoName)
+        currentVideo.current = false
+        currentVideo.playbackPosition = 0
+        currentVideo.watched = true
 
-        // this.getAndApplyState()
-        this.applyState({ watchedVideos, currentVideo: {
-            name: nextVideoData.name,
-            time: 0,
-        }})
+        const nextVideo = this.getNextUnwatchedVideo()
+        let complete = false
+        if (!nextVideo) {
+            complete = true
+            this.state.completed = true
+        } else {
+            nextVideo.current = true
+            nextVideo.playbackPosition = 0
+        }
+
+        const nextVideoData = nextVideo ? nextVideo.data : {}
+        
+        await this.updateState(this.state.watchedVideos, nextVideoData.name || null, 0, complete)
+
+        this.applyState()
+    },
+    getNextUnwatchedVideo() {
+        const watchedVideos = this.state.watchedVideos
+        return this.state.videos.find(v => !watchedVideos.includes(v.data.name))
     },
     getNextVideo(videoName) {
-        const videos = [...document.querySelectorAll(this.videoListItemSelector)]
+        const videos = this.state.videos
         const matchingVideoIndex = videos.findIndex(v => {
-            const data = this.getVideoData(v)
-            return data.name === videoName
+            return v.data.name === videoName
         })
         if (matchingVideoIndex === -1) {
             return null
@@ -177,22 +215,113 @@ const videoUtils = {
             'last-video-watched': currentVideo,
             'current-video-time': currentVideoTime,
             'videos-watched': watchedVideos.join(', '),
-            complete,
-        }, false);
+            completed: complete,
+        }, false).then(() => console.log('sucess')).catch((err) => console.log(err))
     },
     async onVideoTimeUpdate(event) {
         const seconds = event.seconds
-        this.updateWatchTime(seconds)
+        this.state.currentTime = seconds
+        if (!this.timeUpdatePromise) {
+            this.timeUpdatePromise = this.updateWatchTime(seconds).then(() => this.timeUpdatePromise = null)
+        } 
     },
     async updateWatchTime(seconds) {
-        const currentVideo = document.querySelector(this.videoListItemSelector + '.' + this.activeClass)
+        const currentVideo = this.findCurrentVideo()
         if (!currentVideo) {
             return
         }
-        const data = this.getVideoData(currentVideo)
+        const data = currentVideo.data
         const member = await MemberStack.onReady;
-        member.updateProfile({
+        return member.updateProfile({
             'current-video-time': seconds
+        }, false)
+    },
+    findCurrentVideo() {
+        return this.state.videos.find(v => v.current)
+    },
+    onVideoItemClick(event) {
+        const videos = videoUtils.state.videos
+        const matchingVideo = videos.find(v => v.el === this)
+        const nextUnwatched = videoUtils.getNextUnwatchedVideo()
+        const isNextUnwatched = nextUnwatched === matchingVideo
+        if (!matchingVideo || (!matchingVideo.watched && !isNextUnwatched)) {
+            return
+        }
+        videoUtils.setActiveVideo(matchingVideo)
+    },
+    setActiveVideo(video) {
+        // Deactivate videos
+        this.state.videos.forEach(v => {
+            v.current = false
+        })
+        video.current = true
+        video.playbackPosition = 0
+        this.applyState()
+    },
+    toggleCompletedConditionals() {
+        let displayValue = this.state.completed ? 'flex' : 'none'
+        document.querySelectorAll('[data-completed-only]').forEach(el => el.style.display = displayValue)
+        document.querySelectorAll('[data-watch-videos-again]').forEach(el => el.addEventListener('click', this.showVideosPane.bind(this)))
+        if (this.state.completed && !window.localStorage.getItem('always-show-video')) {
+            this.showVideosPane(false)
+        }
+    },
+    toggleVideosStartedConditionals() {
+        this.showIntroductoryPane(!this.state.videosStarted)
+    },
+    setBars() {
+        const regionData = this.getRegionData()
+        const bars = this.getBars()
+        Object.entries(regionData).forEach(([region, amountCompleted]) => {
+            const matchingBar = bars[region]
+            if (!matchingBar) {
+                return
+            }
+            const percentage = Math.round((amountCompleted / matchingBar.total) * 100)
+            matchingBar.chartEl.style.width = percentage + '%'
+        })
+    },
+    getRegionData() {
+        const regions = {};
+        [...document.querySelectorAll('.region-list .region-total')].forEach(region => {
+            const [nameDiv, amountDiv] = [...region.children];
+            regions[nameDiv.innerText] = parseInt(amountDiv.innerText || 0)
+        })
+        return regions
+    },
+    getBars() {
+        const bars = {};
+        [...document.querySelectorAll('.bar-under')].forEach(barEl => {
+            const dataAttribute = [...barEl.attributes].find(attr => attr.name.indexOf('data-total') !== -1)
+            const regionName = dataAttribute.name.replace('data-total-', '').toUpperCase()
+            const total = parseInt(dataAttribute.value)
+            bars[regionName] = {
+                total,
+                chartEl: barEl.querySelector('.bar-over')
+            }
+        })
+        return bars
+    },
+    showVideosPane(bool = true) {
+        const displayValue = bool ? 'flex' : 'none';
+        document.querySelector('[data-video-section]').style.display = displayValue;
+    },
+    showVideosPaneAfterCompletion() {
+        window.localStorage.setItem('always-show-video', true)
+        this.showVideosPane(true)
+        document.querySelector('[data-video-section]').scrollIntoView()
+    },
+    showIntroductoryPane(bool = true) {
+        const displayValue = bool ? 'flex' : 'none';
+        document.querySelector('[data-welcome-section]').style.display = displayValue;
+    },
+    async setVideosStared() {
+        this.showVideosPane(true)
+        this.state.videosStarted = true
+        this.applyState()
+        const member = await MemberStack.onReady;
+        return member.updateProfile({
+            'videos-started': true
         }, false)
     },
 }
