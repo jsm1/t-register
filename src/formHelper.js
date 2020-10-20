@@ -1,5 +1,5 @@
-const firstStageButtonSelector = '#email-form #first-stage-button';
-const formSelector = '#email-form'
+const firstStageButtonSelector = '[data-toy-form] #first-stage-button';
+const formSelector = '[data-toy-form]'
 const confirmPasswordWarningSelector = '.confirm-password-warning';
 const regionInputSelector = '#Region';
 const categoryInputSelector = '#Role';
@@ -7,12 +7,12 @@ const managementQuestionSelector = '.management-question';
 const attendanceOptionSelector = '.attendance-question';
 
 // EA form
-const eaFormSelector = '#email-form-2';
+const eaFormSelector = '[data-toy-ea-form]';
 const formSubmitSelector = formSelector + ' input[type="submit"]';
 
 // Whitelist
 const whitelistItemSelector = '.whitelist .w-dyn-item'
-const whitelistSubmitButtonSelector = '#whitelist-submit'
+const whitelistSubmitButtonSelector = '[data-toy-whitelist-submit]'
 
 module.exports = function initRegistrationForm() {
     const button = document.querySelector(firstStageButtonSelector);
@@ -33,6 +33,9 @@ function onWhitelistSubmitClick() {
     const isValid = getValidityOfVisibleFormElements(form);
     if (isValid) {
         console.log('All valid');
+        if (!window.mailchimpSubmitted) {
+            submitToMailchimp()
+        }
         checkWhitelistEmail();
     } else {
         event.preventDefault();
@@ -119,20 +122,25 @@ function isMainFormValid() {
 
 function getManagerDetails() {
     const form = document.querySelector(formSelector);
-    const elements = form.elements;
+    const elements = [...form.elements];
     const [ managerFirstName, managerLastName ] = [
-        elements.namedItem('First-Name').value,
-        elements.namedItem('Surname').value,
+        getFormValueByMemberstackField(elements, 'first-name'),
+        getFormValueByMemberstackField(elements, 'surname')
     ];
     const details = {
         MANAGERN1: managerFirstName + ' ' + managerLastName,
-        MANAGERE1: elements.namedItem('Email').value,
-        PHONE: elements.namedItem('Mobile').value,
-        REGION: elements.namedItem('Region').value,
+        MANAGERE1: getFormValueByMemberstackField(elements, 'email'),
+        PHONE: getFormValueByMemberstackField(elements, 'mobile'),
+        REGION: getFormValueByMemberstackField(elements, 'region'),
         ROLE: 'Executive Assistant',
         // tags: [{ name: 'Toyota NDC 2020', status: 'Active' }],
     };
     return details;
+}
+
+function getFormValueByMemberstackField(elements, field) {
+    const matchingEl = elements.find(el => el.getAttribute('data-ms-member') === field)
+    return matchingEl ? matchingEl.value : null
 }
 
 function onEAFormSubmit(event) {
@@ -142,21 +150,32 @@ function onEAFormSubmit(event) {
     if (!isMainFormValid()) {
         return;
     }
+    submitToMailchimp()    
+}
 
+function submitToMailchimp() {
     // Submit form to mailchimp
     const url = 'https://toyotachooseyourroad.us2.list-manage.com/subscribe/post-json?u=87fa237eb7daba1ba09d9584e&id=3f7e2117ba&c=?';
-    const form = event.target;
-    const formElements = form.elements;
+    const form = document.querySelector(eaFormSelector);
+    if (!form) {
+        console.log('No mailchimp form')
+        return
+    }
+    const firstName = form.querySelector('[data-ea-first-name]').value
+    const email = form.querySelector('[data-ea-email]').value
+    if (!firstName || !email) {
+        console.log('EA details not set')
+        return
+    }
     const formData = {
-        FNAME: formElements.namedItem('EA-First-Name').value,
-        EMAIL: formElements.namedItem('EA-Email').value,
+        FNAME: firstName,
+        EMAIL: email,
     };
 
     const managerDetails = getManagerDetails();
     for (const [key, value] of Object.entries(managerDetails)) {
         formData[key] = value;       
     }
-
 
     console.log(formData);
     $.ajax({
@@ -168,8 +187,9 @@ function onEAFormSubmit(event) {
             console.log(data);
         },
         complete: () => {
+            window.mailchimpSubmitted = true
            // Submit main form
-           document.querySelector(formSubmitSelector).click();
+           onWhitelistSubmitClick()
         }
     });
 }

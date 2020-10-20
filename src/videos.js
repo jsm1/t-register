@@ -22,6 +22,12 @@ const videoUtils = {
         })
         this.getInitialState().then(() => {
             this.applyState()
+        }).catch((err) => {
+            if (err === 'Not logged in') {
+                console.log('Not logged in')
+                return
+            }
+            console.error(err)
         })
         document.querySelectorAll('[data-show-videos]').forEach(el => {
             el.addEventListener('click', this.setVideosStared.bind(this))
@@ -34,10 +40,14 @@ const videoUtils = {
     async getInitialState() {
         await MemberStack.reload()
         const member = await MemberStack.onReady
+        console.log('Member', member)
+        if (!member.loggedIn) {
+            throw 'Not logged in'
+        }
         const watchedVideos = this.getWatchedVideos(member)
         const currentVideo = this.getCurrentVideo(member) || {}
         let currentVideoIsFirst = false
-        if (!Object.keys(currentVideo).length) {
+        if (!currentVideo.name) {
             currentVideoIsFirst = true
         }
         const videos = [...document.querySelectorAll(this.videoListItemSelector)]
@@ -72,9 +82,8 @@ const videoUtils = {
             if (video.current) {
                 videoEl.classList.add(this.activeClass)
                 videoEl.classList.remove(this.disabledClass)
-                this.loadVideo(video.data.link)
+                this.loadVideo(video.data.link, video.playbackPosition)
                 this.setVideoData(video.data, video.playbackPosition)
-                this.setPlaybackPosition(video.playbackPosition)
             }
         })
         this.toggleCompletedConditionals()
@@ -91,7 +100,7 @@ const videoUtils = {
     getCurrentVideo(member) {
         const currentVideo = member['last-video-watched']
         const currentVideoTime = member['current-video-time']
-        if (!currentVideo) {
+        if (!currentVideo && !currentVideoTime) {
             return null;
         }
         return { name: currentVideo, time: currentVideoTime }
@@ -133,9 +142,6 @@ const videoUtils = {
         }
              
     },
-    setPlaybackPosition(seconds) {
-        this.player.setCurrentTime(seconds || 0)
-    },
     removeChildElements(selector) {
         document.querySelectorAll(selector).forEach(el => el.children.forEach(child => child.parentNode.removeChild(child)));
     },
@@ -147,10 +153,7 @@ const videoUtils = {
             }
             const isSupportingIcon = key.indexOf('icon') !== -1
             const isSupportingLink = key.indexOf('supportlink') !== -1
-            if (isSupportingIcon) {
-                matchingEl.hidden = !value
-                matchingEl.src = value
-            } else if (isSupportingLink) {
+            if (isSupportingLink) {
                 matchingEl.href = value
             } else {
                 matchingEl.innerText = value
@@ -268,6 +271,7 @@ const videoUtils = {
     },
     toggleVideosStartedConditionals() {
         this.showIntroductoryPane(!this.state.videosStarted)
+        this.showVideosPane(this.state.videosStarted)
     },
     setBars() {
         const regionData = this.getRegionData()
