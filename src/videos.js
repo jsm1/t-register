@@ -9,6 +9,8 @@ const videoUtils = {
             disabledClass: 'disabled',
             videoWrapperId: 'video-wrapper',
             videoNameAttribute: 'data-video-name',
+            feedbackFormSelector: '[data-toy-feedback-form]',
+            feedbackSectionSelector: '[data-toy-feedback-section]',
             player: null,
             watchedVideos: null,
             currentVideo: null,
@@ -36,6 +38,7 @@ const videoUtils = {
             el.addEventListener('click', this.showVideosPaneAfterCompletion.bind(this))
         })
         this.setBars()
+        this.initFeedbackFormListener()
     },
     async getInitialState() {
         await MemberStack.reload()
@@ -271,7 +274,7 @@ const videoUtils = {
     },
     toggleVideosStartedConditionals() {
         this.showIntroductoryPane(!this.state.videosStarted)
-        this.showVideosPane(this.state.videosStarted)
+        this.showVideosPane(this.state.videosStarted && !this.state.completed)
     },
     setBars() {
         const regionData = this.getRegionData()
@@ -326,6 +329,25 @@ const videoUtils = {
         const member = await MemberStack.onReady;
         return member.updateProfile({
             'videos-started': true
+        }, false)
+    },
+    initFeedbackFormListener() {
+        const form = document.querySelector(this.feedbackFormSelector);
+        if (form) {
+            form.addEventListener('submit', this.onFeedbackFormSubmit.bind(this))
+        }
+        // Hide feedback form if completed
+        MemberStack.onReady.then((member) => {
+            if (member['feedback-completed']) {
+                const feedbackSection = document.querySelector(this.feedbackSectionSelector)
+                feedbackSection.parentNode.removeChild(feedbackSection)
+            }
+        })
+    },
+    async onFeedbackFormSubmit(event) {
+        const member = await MemberStack.onReady;
+        member.updateProfile({
+            'feedback-completed': true
         }, false)
     },
 }

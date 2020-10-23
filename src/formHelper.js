@@ -14,6 +14,9 @@ const formSubmitSelector = formSelector + ' input[type="submit"]';
 const whitelistItemSelector = '.whitelist .w-dyn-item'
 const whitelistSubmitButtonSelector = '[data-toy-whitelist-submit]'
 
+// Watch button
+const watchButtonSelector = '[data-toy-watch-button]'
+
 module.exports = function initRegistrationForm() {
     const button = document.querySelector(firstStageButtonSelector);
     if (button) {
@@ -26,6 +29,7 @@ module.exports = function initRegistrationForm() {
     }
     initPasswordChecking();
     initEAForm();
+    initWatchButtonChecking();
 }
 
 function onWhitelistSubmitClick() {
@@ -94,9 +98,11 @@ function hideElementsForSecondStage() {
     const category = document.querySelector(categoryInputSelector).value;
 
     // Attendance option
-    if (category === 'Agency') {
+    // Must be dealer
+    if (category.indexOf('Dealer') === -1) {
         removeElement(attendanceOptionSelector)
-    } else if (region === 'ERO' || region === 'SRO') {
+    } else if (region !== 'CRO' && region !== 'TWA') {
+        // Remove for dealers not from CRO or TWA
         removeElement(attendanceOptionSelector);
     }
 
@@ -216,5 +222,15 @@ function checkWhitelistEmail() {
     }
     // Submit regular button
     submitButtons[0].click()
+}
 
+async function initWatchButtonChecking() {
+    // check for button visibility
+    const watchButton = document.querySelector(watchButtonSelector)
+    if (watchButton && watchButton.offsetParent) {
+        const memberData = await MemberStack.onReady
+        if (memberData.role.indexOf('Dealer') === -1) {
+            removeElement(watchButtonSelector)
+        }
+    }
 }
