@@ -268,13 +268,15 @@ const videoUtils = {
         let displayValue = this.state.completed ? 'flex' : 'none'
         document.querySelectorAll('[data-completed-only]').forEach(el => el.style.display = displayValue)
         document.querySelectorAll('[data-watch-videos-again]').forEach(el => el.addEventListener('click', this.showVideosPane.bind(this)))
-        if (this.state.completed && !window.localStorage.getItem('always-show-video')) {
-            this.showVideosPane(false)
+        if (this.state.completed) {
+            this.showVideosPane(!!window.localStorage.getItem('always-show-video'))
         }
     },
     toggleVideosStartedConditionals() {
         this.showIntroductoryPane(!this.state.videosStarted)
-        this.showVideosPane(this.state.videosStarted && !this.state.completed)
+        if (!this.state.completed) {
+            this.showVideosPane(this.state.videosStarted)
+        }
     },
     setBars() {
         const regionData = this.getRegionData()
