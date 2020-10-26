@@ -96,10 +96,10 @@ function getPasswordElements() {
 function hideElementsForSecondStage() {
     const region = document.querySelector(regionInputSelector).value;
     const category = document.querySelector(categoryInputSelector).value;
-
+    const isDealer = category.indexOf('Dealer') !== -1
     // Attendance option
     // Must be dealer
-    if (category.indexOf('Dealer') === -1) {
+    if (!isDealer) {
         removeElement(attendanceOptionSelector)
     } else if (region !== 'CRO' && region !== 'TWA') {
         // Remove for dealers not from CRO or TWA
@@ -107,7 +107,7 @@ function hideElementsForSecondStage() {
     }
 
     // Question option
-    if (category !== 'Dealer Principal' && category !== 'General Manager of Record' && category !== 'Dealership GM') {
+    if (!isDealer && category !== 'General Manager of Record') {
         removeElement(managementQuestionSelector);
     }
 
