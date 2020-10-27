@@ -28,7 +28,10 @@ const videoUtils = {
             if (this.state.completed) {
                 [...document.querySelectorAll('[data-hide-if-complete]')].forEach(el => {
                     el.style.display = 'none'
-                })
+                });
+                [...document.querySelectorAll('[data-show-if-complete]')].forEach(el => {
+                    el.style.display = 'flex'
+                });
             }
         }).catch((err) => {
             if (err === 'Not logged in') {
