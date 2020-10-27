@@ -21,6 +21,7 @@ const videoUtils = {
                 timeUpdatePromise: null,
                 nextUnwatchedVideo: null,
             },
+            isCompleting: false,
         })
         this.getInitialState().then(() => {
             this.applyState();
@@ -80,7 +81,7 @@ const videoUtils = {
             }
         })
     },
-    applyState() {
+    applyState(skipCompleteToggles) {
         console.log('Videos', this.state.videos)
         this.state.videos.forEach((video, index) => {
             const videoEl = video.el
@@ -98,7 +99,10 @@ const videoUtils = {
                 this.setVideoData(video.data, video.playbackPosition)
             }
         })
-        this.toggleCompletedConditionals()
+        if (!skipCompleteToggles) {
+            this.toggleCompletedConditionals()
+        }
+    
         this.toggleVideosStartedConditionals()
     },
     getWatchedVideos(member) {
@@ -193,6 +197,7 @@ const videoUtils = {
         let complete = false
         if (!nextVideo) {
             complete = true
+            this.isCompleting = !this.state.completed
             this.state.completed = true
         } else {
             nextVideo.current = true
@@ -202,8 +207,8 @@ const videoUtils = {
         const nextVideoData = nextVideo ? nextVideo.data : {}
         
         await this.updateState(this.state.watchedVideos, nextVideoData.name || null, 0, complete)
-
-        this.applyState()
+        const skipCompleteToggles = !this.isCompleting && this.state.completed
+        this.applyState(skipCompleteToggles)
     },
     getNextUnwatchedVideo() {
         const watchedVideos = this.state.watchedVideos
@@ -273,7 +278,7 @@ const videoUtils = {
         })
         video.current = true
         video.playbackPosition = 0
-        this.applyState()
+        this.applyState(this.state.completed)
     },
     toggleCompletedConditionals() {
         let displayValue = this.state.completed ? 'flex' : 'none'
