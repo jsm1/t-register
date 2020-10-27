@@ -164,7 +164,9 @@ const videoUtils = {
         })
         const isPresenter2 = data.presenter2 
         const ampersand = document.querySelector('[data-video="presenter1"] + .space-after')
-        ampersand.hidden = !isPresenter2
+        if (ampersand) {
+            ampersand.hidden = !isPresenter2
+        }
     },
     async onVideoEnd(event) {
         const currentVideo = this.findCurrentVideo()
