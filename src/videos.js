@@ -23,7 +23,13 @@ const videoUtils = {
             },
         })
         this.getInitialState().then(() => {
-            this.applyState()
+            this.applyState();
+            // Hide if completed
+            if (this.state.completed) {
+                [...document.querySelectorAll('[data-hide-if-complete]')].forEach(el => {
+                    el.style.display = 'none'
+                })
+            }
         }).catch((err) => {
             if (err === 'Not logged in') {
                 console.log('Not logged in')
@@ -70,13 +76,6 @@ const videoUtils = {
                 playbackPosition: isCurrent ? (currentVideo.time || 0) : undefined,
             }
         })
-
-        // Hide if completed
-        if (this.state.completed) {
-            [...document.querySelectorAll('[data-hide-if-complete]')].forEach(el => {
-                el.style.display = 'none'
-            })
-        }
     },
     applyState() {
         console.log('Videos', this.state.videos)
