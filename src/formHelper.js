@@ -208,10 +208,7 @@ function initEAForm() {
 }
 
 function checkWhitelistEmail() {
-    const isPaginationWhitelist = document.querySelectorAll('.whitelist--no-pagination').length === 0
-    const whitelistEmails = isPaginationWhitelist
-        ? (window.whitelist || [])
-        : [...document.querySelectorAll('.whitelist-email')].map(el => el.innerText.toLowerCase())
+    const whitelistEmails = window.whitelist
     const enteredEmail = document.querySelector(formSelector + ' [data-ms-member="email"]').value.toLowerCase()
     const isEmailInWhitelist = whitelistEmails.some(email => enteredEmail.indexOf(email) !== -1)
     const submitButtons = [...document.querySelectorAll(formSelector + ' input[type="submit"][data-ms-membership]')]

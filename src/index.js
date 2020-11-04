@@ -15,3 +15,10 @@ if (isPaginationWhitelist) {
 window.addEventListener('load', formHelper);
 window.addEventListener('load', dateHider);
 window.addEventListener('load', videos.init.bind(videos));
+
+MemberStack.onReady.then((member) => {
+    const pageHasThanks = document.querySelector('#thanks')
+    if (member.loggedIn && pageHasThanks) {
+        pageHasThanks.scrollIntoView();
+    }
+});
